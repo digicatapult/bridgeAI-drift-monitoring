@@ -3,7 +3,7 @@
 import os
 import warnings
 
-from src.generate_report import generate_report
+from src.drift_report import generate_report
 from src.get_data import load_data
 from src.inference import predict
 from src.utils import load_yaml_config

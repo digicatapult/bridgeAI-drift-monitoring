@@ -5,6 +5,11 @@ from evidently.metric_preset import RegressionPreset, TargetDriftPreset
 from evidently.report import Report
 
 
+def push_report():
+    """Push report to s3."""
+    pass
+
+
 def generate_report(
     historical_data: pd.DataFrame,
     current_data: pd.DataFrame,
@@ -21,3 +26,4 @@ def generate_report(
 
     # Save the report as an HTML file
     report.save_html(report_name)
+    push_report()

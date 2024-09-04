@@ -7,7 +7,7 @@ import requests
 headers = {"Content-Type": "application/json"}
 
 
-def predict(model_endpoint, data: pd.DataFrame):
+def predict(model_endpoint: str, data: pd.DataFrame) -> np.ndarray:
     """Get the model output for the given data using the model endpoing."""
     payload = {"dataframe_records": data.to_dict(orient="records")}
     response = requests.post(model_endpoint, headers=headers, json=payload)
