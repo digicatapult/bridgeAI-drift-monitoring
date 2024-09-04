@@ -8,6 +8,8 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
+evidently = "^0.4.36"
+pandera = "^0.20.3"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -19,3 +21,10 @@ pytest = "^8.3.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.black]
+line-length = 79
+
+[tool.flake8]
+max-line-length = 79

@@ -1,0 +1,13 @@
+model_endpoint: http://localhost:5001/invocations
+data_repo: repo-path
+repo_branch: data-branch-name
+current_data_version: v1.0.0
+new_data_version: v1.1.0
+feature_columns: ["mainroad", "guestroom", "basement", "hotwaterheating",
+                       "airconditioning", "prefarea", "furnishingstatus",
+                       "area", "bedrooms", "bathrooms", "stories", "parking"]
+label_column: "price"
+report_location: "s3"
+report_name: evidently_report.html
+current_data_local_path: ../artefacts/HousingData.csv
+new_data_local_path: ../artefacts/HousingData-new.csv
