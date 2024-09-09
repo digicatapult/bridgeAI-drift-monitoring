@@ -1,17 +1,14 @@
 """Unit tests for evidently report generation."""
 
 import os
-from unittest.mock import patch
 
 import pandas as pd
 
 from src.drift_report import generate_report
 
 
-@patch("src.drift_report.push_report")
-def test_generate_report(mock_push_report):
+def test_generate_report():
     """Test evidently report generation"""
-    mock_push_report.return_value = None
 
     # Dummy arguments for generate_report function
     historical_data = pd.DataFrame(
@@ -29,14 +26,11 @@ def test_generate_report(mock_push_report):
         }
     )
     report_name = "test_report.html"
-    report_location = "./"
 
     # Assertions
     try:
         # Generate the report
-        generate_report(
-            historical_data, current_data, report_name, report_location
-        )
+        generate_report(historical_data, current_data, report_name)
 
         # Assert if the file is created
         assert os.path.exists(
