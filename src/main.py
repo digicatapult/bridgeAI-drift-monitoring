@@ -2,10 +2,12 @@
 
 import os
 import warnings
+from pathlib import Path
 
 from src.drift_report import generate_report
-from src.get_data import load_data
-from src.inference import predict
+from src.get_data import fetch_data
+from src.inference import load_data, predict
+from src.upload_report import upload
 from src.utils import load_yaml_config
 
 warnings.filterwarnings("ignore")
@@ -16,17 +18,31 @@ def main():
     # load the config file
     config = load_yaml_config()
 
-    current_data_local_path = config["current_data_local_path"]
-    new_data_local_path = config["new_data_local_path"]
+    historical_data_version = os.getenv(
+        "HISTORICAL_DATA_VERSION", config["historical_data_version"]
+    )
+    new_data_version = os.getenv(
+        "NEW_DATA_VERSION", config["new_data_version"]
+    )
     feature_columns = config["feature_columns"]
     model_endpoint = os.getenv("MODEL_ENDPOINT", config["model_endpoint"])
-    report_location = os.getenv("REPORT_LOCATION", config["report_location"])
-    report_name = os.getenv("REPORT_NAME", config["report_name"])
-    label_column = config["label_column"]
+    report_save_path = Path(config["report_save_path"]).resolve()
+
+    historical_data_save_path = Path(
+        config["historical_data_save_path"]
+    ).resolve()
+    new_data_save_path = Path(config["new_data_save_path"]).resolve()
+
+    print(f"historical_data_save_path: {historical_data_save_path}")
+    print(f"new_data_save_path: {new_data_save_path}")
+
+    # Fetch datasets from dvc
+    fetch_data(config, historical_data_version, historical_data_save_path)
+    fetch_data(config, new_data_version, new_data_save_path)
 
     # load the datasets
     historical_data, current_data = load_data(
-        current_data_local_path, new_data_local_path, label_column
+        historical_data_save_path, new_data_save_path, config
     )
 
     # Model predictions for both datasets
@@ -37,9 +53,8 @@ def main():
         model_endpoint, current_data[feature_columns]
     )
 
-    generate_report(
-        historical_data, current_data, report_name, report_location
-    )
+    generate_report(historical_data, current_data, report_save_path)
+    upload(report_save_path)
 
 
 if __name__ == "__main__":
