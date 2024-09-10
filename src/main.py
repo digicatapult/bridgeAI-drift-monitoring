@@ -7,7 +7,7 @@ from pathlib import Path
 from src.drift_report import generate_report
 from src.get_data import fetch_data
 from src.inference import load_data, predict
-from src.upload_report import upload
+from src.upload_report import get_s3_client, upload
 from src.utils import load_yaml_config
 
 warnings.filterwarnings("ignore")

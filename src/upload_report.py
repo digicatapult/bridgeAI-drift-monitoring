@@ -4,7 +4,6 @@ from pathlib import Path
 
 import boto3
 from botocore.client import Config
-from botocore.exceptions import ClientError
 
 from src.utils import load_yaml_config
 
@@ -18,7 +17,9 @@ def get_s3_client():
     region = config["dvc"]["dvc_region"]
 
     if not (s3_endpoint and access_key and secret_key and region):
-        raise ValueError("Missing S3 configuration from environment variables and configmap.")
+        raise ValueError(
+            "Missing S3 configuration from env vars and configmap."
+        )
 
     return boto3.client(
         "s3",
