@@ -8,55 +8,36 @@ from botocore.exceptions import ClientError
 
 from src.utils import load_yaml_config
 
-# Configuration details
-config = load_yaml_config()
 
-s3_endpoint = os.getenv(
-    "DVC_ENDPOINT_URL"
-)  # eg: "s3://minio/" or http://localhost:9000
-access_key = os.getenv("DVC_ACCESS_KEY_ID")
-secret_key = os.getenv("DVC_SECRET_ACCESS_KEY")
-region = config["dvc"]["dvc_region"]
+def get_s3_client():
+    """Create and return an S3 client."""
+    s3_endpoint = os.getenv("DVC_ENDPOINT_URL")
+    access_key = os.getenv("DVC_ACCESS_KEY_ID")
+    secret_key = os.getenv("DVC_SECRET_ACCESS_KEY")
+    config = load_yaml_config()
+    region = config["dvc"]["dvc_region"]
 
-# Create a session and S3 client
-s3_client = boto3.client(
-    "s3",
-    endpoint_url=s3_endpoint,
-    aws_access_key_id=access_key,
-    aws_secret_access_key=secret_key,
-    config=Config(signature_version="s3v4"),
-    region_name=region,
-)
+    if not (s3_endpoint and access_key and secret_key and region):
+        raise ValueError("Missing S3 configuration from environment variables and configmap.")
 
-
-def create_bucket_if_not_exists(bucket_name, s3_client):
-    """Create s3 bucket if it doesn't exist."""
-    try:
-        # List all existing buckets to check if the bucket exists
-        buckets = s3_client.list_buckets()
-        bucket_names = [bucket["Name"] for bucket in buckets["Buckets"]]
-        if bucket_name in bucket_names:
-            print(f"Bucket '{bucket_name}' already exists.")
-        else:
-            # Create the bucket without LocationConstraint for MinIO
-            s3_client.create_bucket(Bucket=bucket_name)
-            print(f"Bucket '{bucket_name}' created.")
-    except ClientError as e:
-        # Handle other errors
-        print(f"Error occurred: {e}")
+    return boto3.client(
+        "s3",
+        endpoint_url=s3_endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=Config(signature_version="s3v4"),
+        region_name=region,
+    )
 
 
-def upload(file_name):
-    bucket_name = "evidently-reports"
+def upload(s3_client, file_name, bucket_name):
+    """Upload the report file to the s3 bucket."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Adding the timestamp to the filename
+    # Adding the timestamp to the filename when saving it
     object_name = f"report_{timestamp}.html"
-
-    create_bucket_if_not_exists(bucket_name, s3_client)
 
     # Upload the file
     try:
-
         s3_client.upload_file(str(file_name), bucket_name, object_name)
         print(
             f"File {file_name} uploaded to "
@@ -70,4 +51,8 @@ if __name__ == "__main__":
     # load the config file
     config = load_yaml_config()
     report_save_path = Path(config["report_save_path"]).resolve()
-    upload(report_save_path)
+    bucket_name = os.getenv(
+        "DRIFT_REPORT_BUCKET", config["report_save_bucket"]
+    )
+    s3_client = get_s3_client()
+    upload(s3_client, report_save_path, bucket_name)

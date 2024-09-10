@@ -54,7 +54,12 @@ def main():
     )
 
     generate_report(historical_data, current_data, report_save_path)
-    upload(report_save_path)
+
+    bucket_name = os.getenv(
+        "DRIFT_REPORT_BUCKET", config["report_save_bucket"]
+    )
+    s3_client = get_s3_client()
+    upload(s3_client, report_save_path, bucket_name)
 
 
 if __name__ == "__main__":
