@@ -46,6 +46,7 @@ def upload(s3_client, file_name, bucket_name):
         )
     except Exception as e:
         print(f"Error uploading file: {e}")
+        raise e
 
 
 if __name__ == "__main__":
