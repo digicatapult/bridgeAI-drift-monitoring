@@ -38,10 +38,15 @@ The following environment variables need to be set for this repo.
 | DRIFT_REPORT_BUCKET     | `evidently-reports`                                                            | s3 bucket name where the generated html report will be saved                                                  |
 
 
+Note:
+If you are using local kind cluster to create the inference service, you can follow below steps to find the correct `MODEL_ENDPOINT`.
+1. identify the pod corresponding to the model inference service by running `kubectl get pods -n default`. If using a different namespace, replace the `default` with the right name space
+2. Once you identify the pod, port forward the inference service `kubectl port-forward <pod name> 8081:8080 -n default`. Replace the pod name with the actual value which would look something like this `house-price-predictor-76f7659dfc-q6k78` 
+3. Now the `MODEL_ENDPOINT` will be something like `http://localhost:8081/v2/models/house_price_prediction_prod/infer` where you can replace the `house_price_prediction_prod` with the registered model name that you have deployed using kserve
+4. If you are using docker or DAG to run the scripts in this repo, you may need to replace the `localhost` with `host.docker.internal` as well
+
 ### Running the tests
 
 Ensure that you have the project requirements already set up by following the [Data Ingestion and versioning](#data-ingestion-and-versioning) instructions
 - Ensure `pytest` is installed. `poetry install` will install it as a dependency.
-
-[//]: # (- - For integration tests, set up the dependencies &#40;MLFlow&#41; by running, `docker-compose up -d`)
 - Run the tests with `poetry run pytest ./tests`
