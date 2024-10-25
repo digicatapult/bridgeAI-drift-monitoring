@@ -50,12 +50,72 @@ def load_data(historical_data_path, new_data_path, config):
     return historical_data, current_data
 
 
+def transform_data_for_batch_processing(data: pd.DataFrame) -> list:
+    """Transform batch of data for kserve batch inference."""
+    # Map pandas dtypes to Kserve Inference Server data types
+    dtype_map = {
+        "float64": "FP64",
+        "float32": "FP32",
+        "int64": "INT64",
+        "int32": "INT32",
+        "int16": "INT16",
+        "int8": "INT8",
+        "object": "BYTES",
+        "bool": "BOOL",
+    }
+    batch_size = len(data)
+    inputs = []
+
+    # Iteratively prepare the list of inputs by column
+    for column_name in data.columns:
+        column_data = data[column_name]
+        # Get the data type mapping for Kserve
+        pandas_dtype = str(column_data.dtype)
+        kserve_dtype = dtype_map.get(pandas_dtype)
+        if kserve_dtype is None:
+            raise ValueError(
+                f"Unsupported data type '{pandas_dtype}' "
+                f"for column '{column_name}'"
+            )
+
+        # Prepare individual input tensor
+        input_tensor = {
+            "name": column_name,
+            "shape": [batch_size],
+            "datatype": kserve_dtype,
+            "data": column_data.tolist(),
+        }
+        inputs.append(input_tensor)
+    return inputs
+
+
 def predict(model_endpoint: str, data: pd.DataFrame) -> np.ndarray:
-    """Get the model output for the given data using the model endpoing."""
-    payload = {"dataframe_records": data.to_dict(orient="records")}
+    """Get the model output for batch data using the KServe model endpoint."""
+    payload = {"inputs": transform_data_for_batch_processing(data)}
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    print(
+        f"Sending batch inference to the model endpoint: {model_endpoint} "
+        f"for {len(data)} data points"
+    )
+
+    # POST request
     response = requests.post(model_endpoint, headers=headers, json=payload)
-    predictions = np.array(response.json()["predictions"]).flatten()
-    return predictions
+    response.raise_for_status()
+
+    # Extract predictions from the response's "outputs" key
+    outputs = response.json().get("outputs")
+    if outputs is None:
+        raise ValueError("No outputs found in the response.")
+
+    # Assuming the output is a single tensor
+    predictions = outputs[0].get("data")
+    if predictions is None:
+        raise ValueError("No predictions found in the outputs.")
+
+    return np.array(predictions)
 
 
 if __name__ == "__main__":
