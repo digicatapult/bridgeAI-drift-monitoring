@@ -132,6 +132,17 @@ def dvc_remote_add(config):
         raise e
 
 
+def safe_move(src, dst):
+    """Safely move file from source to destination.
+
+    This is to deal with `OSError: Invalid cross-device link` when
+    one is on a local disk and the other is on an external disk
+    or a network-mounted volume).
+    """
+    shutil.copy(src, dst)
+    os.remove(src)
+
+
 def move_dvc_data(source_repo, save_path):
     """Move pulled dvc data to where it is expected to be."""
     # First delete if the destination has files with same name
@@ -142,7 +153,7 @@ def move_dvc_data(source_repo, save_path):
 
     # Now move the data to destination
     try:
-        shutil.move("./artefacts/train_data.csv", save_path)
+        safe_move("./artefacts/train_data.csv", save_path)
     except Exception as e:
         logger.error(f"Copying dvc data failed with error {e}")
         raise e
