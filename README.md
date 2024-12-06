@@ -29,13 +29,13 @@ The following environment variables need to be set for this repo.
 | DVC_ACCESS_KEY_ID       | `admin`                                                                        | Access key for dvc remote                                                                                     |
 | DVC_SECRET_ACCESS_KEY   | `password`                                                                     | secret access key for dvc remote                                                                              |
 | DVC_REMOTE_NAME         | `regression-model-remote`                                                      | A name assigned to the dvc remote                                                                             |
-| DVC_REMOTE              | `s3://artifacts`                                                               | DVC remote path (to s3/minio bucket)                                                                          |
+| DVC_REMOTE              | `s3://bridgeai-dvc-remote`                                                     | DVC remote path (to s3/minio bucket)                                                                          |
 | DVC_ENDPOINT_URL        | `http://minio`                                                                 | Endpoint url for dvc remote                                                                                   |
 | DATA_REPO               | `https://github.com/digicatapult/bridgeAI-regression-model-data-ingestion.git` | data ingestion repo where the data is versioned with dvc                                                      |
 | HISTORICAL_DATA_VERSION | `data-v1.0.0`                                                                  | the data version (dvc tagged version from the data ingestion repo) used for training the model                |
 | NEW_DATA_VERSION        | `data-v1.1.0`                                                                  | the data version (dvc tagged version from the data ingestion repo) curresponding to the new data              |
 | MODEL_ENDPOINT          | `http://host.docker.internal:5001/invocations`                                 | deployed model endpoint using which predictions can be made                                                   |
-| DRIFT_REPORT_BUCKET     | `evidently-reports`                                                            | s3 bucket name where the generated html report will be saved                                                  |
+| DRIFT_REPORT_BUCKET     | `bridgeai-evidently-reports`                                                   | s3 bucket name where the generated html report will be saved                                                  |
 
 
 Note:

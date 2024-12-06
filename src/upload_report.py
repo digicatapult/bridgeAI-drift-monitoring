@@ -13,8 +13,7 @@ def get_s3_client():
     s3_endpoint = os.getenv("DVC_ENDPOINT_URL")
     access_key = os.getenv("DVC_ACCESS_KEY_ID")
     secret_key = os.getenv("DVC_SECRET_ACCESS_KEY")
-    config = load_yaml_config()
-    region = config["dvc"]["dvc_region"]
+    region = os.getenv("AWS_DEFAULT_REGION")
 
     if not (s3_endpoint and access_key and secret_key and region):
         raise ValueError(

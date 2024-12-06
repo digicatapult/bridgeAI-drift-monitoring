@@ -62,11 +62,14 @@ def dvc_pull(config):
     csv_files = [
         f for f in os.listdir(config["dvc"]["data_path"]) if f.endswith(".csv")
     ]
+    dvc_remote_name = os.getenv(
+        "DVC_REMOTE_NAME", config["dvc"]["dvc_remote_name"]
+    )
     for file in csv_files:
         delete_file_if_exists(file)
     try:
         dvc_remote_add(config)
-        dvc_main(["pull", "-r", config["dvc"]["dvc_remote_name"]])
+        dvc_main(["pull", "-r", dvc_remote_name])
     except Exception as e:
         logger.error(f"DVC pull failed with error: {e}")
         raise e
@@ -76,13 +79,15 @@ def dvc_remote_add(config):
     """Set the dvc remote."""
     access_key_id = os.getenv("DVC_ACCESS_KEY_ID")
     secret_access_key = os.getenv("DVC_SECRET_ACCESS_KEY")
-    region = config["dvc"]["dvc_region"]
+    region = os.getenv("AWS_DEFAULT_REGION")
     try:
         dvc_remote_name = os.getenv(
             "DVC_REMOTE_NAME", config["dvc"]["dvc_remote_name"]
         )
         dvc_remote = os.getenv("DVC_REMOTE", config["dvc"]["dvc_remote"])
-
+        dvc_endpoint_url = os.getenv(
+            "DVC_ENDPOINT_URL", config["dvc"]["dvc_endpoint_url"]
+        )
         dvc_main(["remote", "add", "-f", dvc_remote_name, dvc_remote])
         dvc_main(
             [
@@ -90,27 +95,36 @@ def dvc_remote_add(config):
                 "modify",
                 dvc_remote_name,
                 "endpointurl",
-                config["dvc"]["dvc_endpoint_url"],
+                dvc_endpoint_url,
             ]
         )
-        dvc_main(
-            [
-                "remote",
-                "modify",
-                dvc_remote_name,
-                "access_key_id",
-                access_key_id,
-            ]
-        )
-        dvc_main(
-            [
-                "remote",
-                "modify",
-                dvc_remote_name,
-                "secret_access_key",
-                secret_access_key,
-            ]
-        )
+        if secret_access_key is None or secret_access_key == "":
+            # Set dvc remote credentials
+            # only when a valid secret access key is present
+            logger.warning(
+                "AWS credentials `dvc_secret_access_key` is missing "
+                "in the Airflow connection.\n"
+                "Falling back to IAM based s3 authentication."
+            )
+        else:
+            dvc_main(
+                [
+                    "remote",
+                    "modify",
+                    dvc_remote_name,
+                    "access_key_id",
+                    access_key_id,
+                ]
+            )
+            dvc_main(
+                [
+                    "remote",
+                    "modify",
+                    dvc_remote_name,
+                    "secret_access_key",
+                    secret_access_key,
+                ]
+            )
         # Minio does not enforce regions but DVC requires it
         dvc_main(["remote", "modify", dvc_remote_name, "region", region])
     except Exception as e:
