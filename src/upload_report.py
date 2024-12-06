@@ -15,19 +15,22 @@ def get_s3_client():
     secret_key = os.getenv("DVC_SECRET_ACCESS_KEY")
     region = os.getenv("AWS_DEFAULT_REGION")
 
-    if not (s3_endpoint and access_key and secret_key and region):
-        raise ValueError(
-            "Missing S3 configuration from env vars and configmap."
+    if access_key is None or access_key == "":
+        boto3.client(
+            "s3",
+            endpoint_url=s3_endpoint,
+            config=Config(signature_version="s3v4"),
+            region_name=region,
         )
-
-    return boto3.client(
-        "s3",
-        endpoint_url=s3_endpoint,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        config=Config(signature_version="s3v4"),
-        region_name=region,
-    )
+    else:
+        return boto3.client(
+            "s3",
+            endpoint_url=s3_endpoint,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            config=Config(signature_version="s3v4"),
+            region_name=region,
+        )
 
 
 def upload(s3_client, file_name, bucket_name):
