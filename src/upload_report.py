@@ -16,7 +16,7 @@ def get_s3_client():
     region = os.getenv("AWS_DEFAULT_REGION")
 
     if access_key is None or access_key == "":
-        boto3.client(
+        return boto3.client(
             "s3",
             endpoint_url=s3_endpoint,
             config=Config(signature_version="s3v4"),
