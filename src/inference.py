@@ -35,7 +35,6 @@ schema = DataFrameSchema(
 
 def load_data(historical_data_path, new_data_path, config):
     """Load current(new) data and historical(used for training) data."""
-
     label_column = config["label_column"]
 
     # Historical data
@@ -50,76 +49,56 @@ def load_data(historical_data_path, new_data_path, config):
     return historical_data, current_data
 
 
-def transform_data_for_batch_processing(data: pd.DataFrame) -> list:
-    """Transform batch of data for kserve batch inference."""
-    # Map pandas dtypes to Kserve Inference Server data types
-    dtype_map = {
-        "float64": "FP64",
-        "float32": "FP32",
-        "int64": "INT64",
-        "int32": "INT32",
-        "int16": "INT16",
-        "int8": "INT8",
-        "object": "BYTES",
-        "bool": "BOOL",
+def prepare_single_record_payload(row: pd.Series) -> dict:
+    """Prepare a single record payload that matches the HousingData schema."""
+    payload = {
+        "mainroad": str(row["mainroad"]).upper(),
+        "guestroom": str(row["guestroom"]).upper(),
+        "basement": str(row["basement"]).upper(),
+        "hotwaterheating": str(row["hotwaterheating"]).upper(),
+        "airconditioning": str(row["airconditioning"]).upper(),
+        "prefarea": str(row["prefarea"]).upper(),
+        "furnishingstatus": str(row["furnishingstatus"]).lower(),
+        "area": float(row["area"]),
+        "bedrooms": int(row["bedrooms"]),
+        "bathrooms": int(row["bathrooms"]),
+        "stories": int(row["stories"]),
+        "parking": int(row["parking"]),
     }
-    batch_size = len(data)
-    inputs = []
+    return payload
 
-    # Iteratively prepare the list of inputs by column
-    for column_name in data.columns:
-        column_data = data[column_name]
-        # Get the data type mapping for Kserve
-        pandas_dtype = str(column_data.dtype)
-        kserve_dtype = dtype_map.get(pandas_dtype)
-        if kserve_dtype is None:
-            raise ValueError(
-                f"Unsupported data type '{pandas_dtype}' "
-                f"for column '{column_name}'"
-            )
 
-        # Prepare individual input tensor
-        input_tensor = {
-            "name": column_name,
-            "shape": [batch_size],
-            "datatype": kserve_dtype,
-            "data": column_data.tolist(),
-        }
-        inputs.append(input_tensor)
-    return inputs
+def predict_single(model_endpoint: str, payload: dict) -> float:
+    """Get a single prediction from the model endpoint for one record."""
+    response = requests.post(
+        model_endpoint,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        print("HTTPError occurred:", e)
+        print("Response status code:", response.status_code)
+        print("Response content:", response.text)
+        raise
+
+    resp_json = response.json()
+    prediction = resp_json["response"]["prediction"]
+    return float(prediction)
 
 
 def predict(model_endpoint: str, data: pd.DataFrame) -> np.ndarray:
-    """Get the model output for batch data using the KServe model endpoint."""
-    payload = {"inputs": transform_data_for_batch_processing(data)}
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    print(
-        f"Sending batch inference to the model endpoint: {model_endpoint} "
-        f"for {len(data)} data points"
-    )
-
-    # POST request
-    response = requests.post(model_endpoint, headers=headers, json=payload)
-    response.raise_for_status()
-
-    # Extract predictions from the response's "outputs" key
-    outputs = response.json().get("outputs")
-    if outputs is None:
-        raise ValueError("No outputs found in the response.")
-
-    # Assuming the output is a single tensor
-    predictions = outputs[0].get("data")
-    if predictions is None:
-        raise ValueError("No predictions found in the outputs.")
-
+    """Get model predictions by sending one record at a time."""
+    predictions = []
+    for _, row in data.iterrows():
+        payload = prepare_single_record_payload(row)
+        prediction = predict_single(model_endpoint, payload)
+        predictions.append(prediction)
     return np.array(predictions)
 
 
 if __name__ == "__main__":
-    # load the config file
     config = load_yaml_config()
 
     feature_columns = config["feature_columns"]
@@ -135,7 +114,7 @@ if __name__ == "__main__":
         historical_data_save_path, new_data_save_path, config
     )
 
-    # Model predictions for both datasets
+    # Model predictions for both datasets, one record at a time
     historical_data["prediction"] = predict(
         model_endpoint, historical_data[feature_columns]
     )
