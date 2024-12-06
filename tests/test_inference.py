@@ -1,13 +1,13 @@
 """Unit tests for batch inference."""
 
-from unittest.mock import ANY, patch
+from unittest.mock import call, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 import requests
 
-from src.inference import predict, transform_data_for_batch_processing
+from src.inference import predict, prepare_single_record_payload
 
 # define dummy endpoint, sample test data, and expected output
 model_endpoint = "http://localhost/v2/models/house_price_prediction_prod/infer"
@@ -27,16 +27,37 @@ sample_data = pd.DataFrame(
         "furnishingstatus": ["furnished", "unfurnished"],
     }
 )
-mock_predictions = np.array([[250000.0], [100000.0]])
+mock_predictions = np.array([250000.0, 100000.0])
+
+
+class MockResponse:
+    def __init__(self, prediction, status_code=200):
+        self._prediction = prediction
+        self.status_code = status_code
+
+    def json(self):
+        return {
+            "status": 200,
+            "message": "House price prediction successful",
+            "response": {"prediction": self._prediction, "unit": "GBP(£)"},
+        }
+
+    def raise_for_status(self):
+        if not (200 <= self.status_code < 300):
+            raise requests.exceptions.HTTPError(
+                f"{self.status_code} Error", response=self
+            )
 
 
 @patch("src.inference.requests.post")
 def test_predict_normal_case(mock_post):
     """Passing test case with mocked response."""
-    # mock the requests.post response to mimic KServe V2 response structure
-    mock_post.return_value.json.return_value = {
-        "outputs": [{"data": mock_predictions.flatten().tolist()}]
-    }
+
+    # Set the side_effect to return a different MockResponse for each call
+    mock_post.side_effect = [
+        MockResponse(mock_predictions[0]),
+        MockResponse(mock_predictions[1]),
+    ]
 
     result = predict(model_endpoint, sample_data)
 
@@ -44,39 +65,56 @@ def test_predict_normal_case(mock_post):
     assert isinstance(result, np.ndarray)
 
     # check if the response matches
-    np.testing.assert_array_equal(result, np.array(mock_predictions).flatten())
+    np.testing.assert_array_equal(result, np.array(mock_predictions))
 
-    # transform the data and prepare the payload
-    expected_payload = {
-        "inputs": transform_data_for_batch_processing(sample_data)
-    }
+    # Prepare the expected payload for the single record
+    expected_payload_first = prepare_single_record_payload(sample_data.iloc[0])
+    expected_payload_second = prepare_single_record_payload(
+        sample_data.iloc[1]
+    )
 
-    # Check if the endpoint was called with the expected payload
-    mock_post.assert_called_once_with(
-        model_endpoint,
-        headers=ANY,
-        json=expected_payload,
+    # Check calls to the mock post
+    mock_post.assert_has_calls(
+        [
+            call(
+                model_endpoint,
+                json=expected_payload_first,
+                headers={"Content-Type": "application/json"},
+            ),
+            call(
+                model_endpoint,
+                json=expected_payload_second,
+                headers={"Content-Type": "application/json"},
+            ),
+        ],
+        any_order=False,
     )
 
 
 @patch("src.inference.requests.post")
 def test_predict_incorrect_response_structure(mock_post):
     """Test with incorrect payload."""
-    # Mocking an incorrect response structure
-    mock_post.return_value.json.return_value = {"wrong_key": []}
+    # Mocking a response with wrong key
+    mock_post.return_value.json.return_value = {
+        "status": 200,
+        "response": {"wrong_key": []},
+    }
 
-    # Check if the function raises an exception or handles it gracefully
-    with pytest.raises(ValueError):
+    # Check if the function raises a ValueError due to missing "prediction"
+    with pytest.raises(KeyError):
         predict(model_endpoint, sample_data)
 
 
 @patch("src.inference.requests.post")
-def test_predict_missing_data_in_outputs(mock_post):
-    """Test response with missing data key in outputs."""
-    # Mocking a response with "outputs" but without "data" key
-    mock_post.return_value.json.return_value = {"outputs": [{}]}
+def test_predict_invalid_prediction(mock_post):
+    """Test response missing the 'prediction' key."""
+    # Mocking a response with invalid "prediction" value
+    mock_post.return_value.json.return_value = {
+        "status": 200,
+        "response": {"prediction": "NA"},
+    }
 
-    # Expect the function to raise a ValueError due to missing data field
+    # Expect the function to raise a ValueError due invalid prediction
     with pytest.raises(ValueError):
         predict(model_endpoint, sample_data)
 
