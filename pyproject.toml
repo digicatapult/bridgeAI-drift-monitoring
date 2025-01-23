@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bridgeai-drift-monitoring"
-version = "0.3.4"
+version = "0.3.5"
 description = ""
 authors = ["DC AI Team <opensource@digicatapult.org.uk>"]
 readme = "README.md"
