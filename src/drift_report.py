@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
-from evidently.metric_preset import RegressionPreset, TargetDriftPreset
+from evidently.metric_preset import DataDriftPreset
 from evidently.report import Report
 
 from src.utils import load_yaml_config
@@ -15,9 +15,8 @@ def generate_report(
     report_save_path,
 ) -> None:
     """Evidently target/model drift generation."""
-    # Initialize Evidently's report with
-    # target drift and regression performance metrics
-    report = Report(metrics=[RegressionPreset(), TargetDriftPreset()])
+    # Initialize Evidently's report with data drift report metric
+    report = Report(metrics=[DataDriftPreset()])
 
     # Generate the report comparing historical data to current data
     report.run(reference_data=historical_data, current_data=current_data)
